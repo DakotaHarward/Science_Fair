@@ -6,20 +6,20 @@ SoftwareSerial SwSerial(2, 3); // RX, TX
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
 char auth[] = "8aec68a87202468fab5f6b972bb57bb6";
-const int buttonPin1 = 8;
-const int buttonPin2 = 12;
-const int powerPin = 13;
-const int powerPinLight = 2;
-const int alertPin = 7;
-int button1State = 0;
-int button2State = 0;
-boolean runStuff = false;
+int earthquakePin = 2;
+int powerPin = 7;
+int powerPinLight = 8;
+int alertPin = 13;
+int earthquakeState = 0;
+boolean runDetector = false;
+boolean lcdDetected = false;
+boolean lcdGo = true;
+WidgetLCD lcd(V6);
 
 void setup(){
   SwSerial.begin(9600);
   Blynk.begin(auth);
-  pinMode(buttonPin1, INPUT);
-  pinMode(buttonPin2, INPUT);
+  pinMode(earthquakePin, INPUT);
   pinMode(powerPin, OUTPUT);
   pinMode(powerPinLight, OUTPUT);
   pinMode(alertPin, OUTPUT);
@@ -30,27 +30,24 @@ void setup(){
 void loop()
 {
   Blynk.run();
-  if(runStuff){
-  button1State = digitalRead(buttonPin1);
-  button2State = digitalRead(buttonPin2);
-  if(button1State == LOW) {
+  if(runDetector){
+  if(digitalRead(earthquakePin) == HIGH) {
+    if(lcdGo){
+      lcdDetected = false;
+      lcdPrint();
+      lcdGo = false;
+    }
     Blynk.virtualWrite(3, 1023);
     Blynk.notify("Possible Earthquake Alert.");
     Blynk.virtualWrite(6, "Earthquake Threat Detected!");
     digitalWrite(alertPin, HIGH);
   }else{
+    if(lcdGo == false){
+      lcdDetected = true;
+      lcdPrint();
+      lcdGo = true;
+    }
     Blynk.virtualWrite(3, 0);
-    Blynk.virtualWrite(6, "No Earthquake Threat Detected.");
-    digitalWrite(alertPin, LOW);
-  }
-  if(button2State == LOW) {
-    Blynk.virtualWrite(3, 1023);
-    Blynk.notify("Possible Earthquake Alert.");
-    Blynk.virtualWrite(6, "Earthquake Threat Detected!");
-    digitalWrite(alertPin, HIGH);
-  }else{
-    Blynk.virtualWrite(3, 0);
-    Blynk.virtualWrite(6, "No Earthquake Threat Detected.");
     digitalWrite(alertPin, LOW);
   }
   }
@@ -61,13 +58,26 @@ BLYNK_WRITE(V4)
      Blynk.virtualWrite(2, 1023);
      digitalWrite(powerPin, HIGH);
      digitalWrite(powerPinLight, HIGH);
-     runStuff = true;
+     runDetector = true;
      //button presed
   } else {
     Blynk.virtualWrite(2, 0);
     digitalWrite(powerPin, LOW);
     digitalWrite(powerPinLight, LOW);
-    runStuff = false;
+    digitalWrite(alertPin, LOW);
+    runDetector = false;
     //button released
   }
 }
+void lcdPrint(){
+  if(lcdDetected){
+    lcd.clear();
+    lcd.print(0, 0, "Possible Earthquake");
+    lcd.print(0, 1, "Threat Detected");
+  }else{
+    lcd.clear();
+    lcd.print(0, 0, "No Earthquake");
+    lcd.print(0, 1, "Threat Detected");
+  }
+}
+
