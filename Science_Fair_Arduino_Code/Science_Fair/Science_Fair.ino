@@ -1,55 +1,83 @@
+#include <StopWatch.h>
 #include <SoftwareSerial.h>
-SoftwareSerial SwSerial(2, 3); // RX, TX
+SoftwareSerial SwSerial(2, 3);
 #define BLYNK_PRINT SwSerial
 #include <BlynkSimpleSerial.h>
 
-// You should get Auth Token in the Blynk App.
-// Go to the Project Settings (nut icon).
 char auth[] = "8aec68a87202468fab5f6b972bb57bb6";
 int earthquakePin = 2;
+int hitLight = 4; 
 int powerPin = 7;
 int powerPinLight = 8;
 int alertPin = 13;
 int earthquakeState = 0;
+int sensitivity = 10;
+int notificationTime = 5;
 boolean runDetector = false;
-boolean lcdDetected = false;
-boolean lcdGo = true;
+int hits = 0;
 WidgetLCD lcd(V6);
+WidgetTerminal terminal(V0);
+StopWatch earthquakeTimer(StopWatch::SECONDS);
+StopWatch alertTimer(StopWatch::SECONDS);
+StopWatch measuring;
 
 void setup(){
+  terminal.flush();
   SwSerial.begin(9600);
   Blynk.begin(auth);
   pinMode(earthquakePin, INPUT);
   pinMode(powerPin, OUTPUT);
   pinMode(powerPinLight, OUTPUT);
   pinMode(alertPin, OUTPUT);
-  // Default baud rate is 9600. You could specify it like this:
-  //Blynk.begin(auth, 57600);
+  pinMode(hitLight, OUTPUT);
+  digitalWrite(powerPin, LOW);
+  digitalWrite(powerPinLight, LOW);
+  digitalWrite(alertPin, LOW);
 }
 
 void loop()
 {
   Blynk.run();
-  if(runDetector){
-  if(digitalRead(earthquakePin) == HIGH) {
-    if(lcdGo){
-      lcdDetected = false;
-      lcdPrint();
-      lcdGo = false;
+  if(alertTimer.isRunning()){
+    if(alertTimer.elapsed() >= notificationTime){
+      Blynk.virtualWrite(3, 0);
+      digitalWrite(alertPin, LOW);
+      alertTimer.stop();
+      alertTimer.reset();
     }
-    Blynk.virtualWrite(3, 1023);
-    Blynk.notify("Possible Earthquake Alert.");
-    Blynk.virtualWrite(6, "Earthquake Threat Detected!");
-    digitalWrite(alertPin, HIGH);
-  }else{
-    if(lcdGo == false){
-      lcdDetected = true;
-      lcdPrint();
-      lcdGo = true;
-    }
-    Blynk.virtualWrite(3, 0);
-    digitalWrite(alertPin, LOW);
   }
+  if(runDetector){
+    if(digitalRead(earthquakePin) == HIGH) {
+      measuring.stop();
+      measuring.reset();
+      measuring.start();
+      digitalWrite(hitLight, HIGH);
+      if(alertTimer.isRunning()){
+        terminal.print(" * still running * ");
+        alertTimer.stop();
+        alertTimer.reset();
+        alertTimer.start();
+      }else{
+      if(earthquakeTimer.isRunning()){
+        if(earthquakeTimer.elapsed() < 1){
+          hits = hits + 1;
+          terminal.print(hits);
+          if(hits > sensitivity){
+            terminal.print(" %*& ALERT &*% ");
+            earthquakeAlert();
+            resetTime();
+          }
+        }else{
+          resetTime();
+        }
+      }else{
+        earthquakeTimer.start();
+        hits = hits + 1;
+      }
+      }
+    }else{
+      digitalWrite(hitLight, LOW);
+    }
   }
 }
 BLYNK_WRITE(V4)  
@@ -66,18 +94,61 @@ BLYNK_WRITE(V4)
     digitalWrite(powerPinLight, LOW);
     digitalWrite(alertPin, LOW);
     runDetector = false;
-    //button released
   }
 }
-void lcdPrint(){
-  if(lcdDetected){
-    lcd.clear();
-    lcd.print(0, 0, "Possible Earthquake");
-    lcd.print(0, 1, "Threat Detected");
-  }else{
-    lcd.clear();
-    lcd.print(0, 0, "No Earthquake");
-    lcd.print(0, 1, "Threat Detected");
+BLYNK_WRITE(V1){
+  sensitivity = param.asInt();
+}
+BLYNK_WRITE(V5){
+  notificationTime =  param.asInt();
+}
+BLYNK_WRITE(V0){
+  if (String("clear") == param.asStr()) {
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
+    terminal.println("");
   }
+  if (String("resetlits") == param.asStr()) {
+    Blynk.virtualWrite(3, 0);
+    digitalWrite(alertPin, LOW);
+  }
+}
+void earthquakeAlert(){
+  if(alertTimer.isRunning()){
+    alertTimer.stop();
+    alertTimer.reset();
+    alertTimer.start();
+    terminal.print("earthquake alert called");
+    Blynk.virtualWrite(3, 1023);
+    Blynk.notify("Possible Earthquake Alert.");
+    digitalWrite(alertPin, HIGH);
+  }else{
+    alertTimer.start();
+    terminal.print("earthquake alert called");
+    Blynk.virtualWrite(3, 1023);
+    Blynk.notify("Possible Earthquake Alert.");
+    digitalWrite(alertPin, HIGH);
+    measuring.stop();
+    terminal.println("");
+    terminal.println("Arduino Speed: ");
+    terminal.print(measuring.elapsed());
+    terminal.println("");
+    terminal.flush();
+  }
+}
+void resetTime(){
+    hits = 0;
+    earthquakeTimer.stop();
+    earthquakeTimer.reset();
 }
 
