@@ -131,12 +131,16 @@ void earthquakeAlert(){
     terminal.print("earthquake alert called");
     Blynk.virtualWrite(3, 1023);
     Blynk.notify("Possible Earthquake Alert.");
+    Blynk.tweet("This is a test Earthquake Alert.");
+    Blynk.email("daktoa101@gmail.com", "Test Earthquake Alert", "A test Earthquake Alert was called in your area.");
     digitalWrite(alertPin, HIGH);
   }else{
     alertTimer.start();
     terminal.print("earthquake alert called");
     Blynk.virtualWrite(3, 1023);
     Blynk.notify("Possible Earthquake Alert.");
+    Blynk.tweet("This is a test Earthquake Alert.");
+    Blynk.email("daktoa101@gmail.com", "Test Earthquake Alert", "A test Earthquake Alert was called in your area.");
     digitalWrite(alertPin, HIGH);
     measuring.stop();
     terminal.println("");
